@@ -1,76 +1,157 @@
 import React, { useEffect, useState } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ToastAndroid } from 'react-native'
 import TaskItem from './TaskItem'
 import InputField from './InputField'
-import axios from 'axios';
+import axios from 'axios'
 
 function Todo() {
   const [list, setList] = useState([]);
+  const [counter, setCounter] = useState(0);
 
-  // Function to add data in database
-  const addItem = async (task) => {
-    console.log('Data', task);
-
-    let apiUrl = "http://172.18.3.198:3001/todo/save";
-    let formData = {
-      itemName: task ? task : ''
-    };
-
-    try {
-      let response = await axios({
-        method: 'POST',
-        url: apiUrl,
-        data: formData
-      });
-      console.log(response);
-    }
-
-    catch (error) {
-      console.log('Error Found: ', error.response);
-    };
-  };
-
-  // Function to display data from database
-  const userList = async () => {
-    let userUrl = 'http://172.18.3.198:3001/todo_list';
-
+  // Function to display/get data from database
+  const itemList = async () => {
+    let apiUrl = 'http://172.18.3.16:3000/todo_list';
     try {
       let response = await axios({
         method: 'GET',
-        url: userUrl,
+        url: apiUrl,
       });
       console.log(response);
-
       if (response.status == 200) {
         let { data } = response;
         if (data) setList(data);
       }
     }
-
     catch (error) {
       console.log('Error Found: ', error.response);
     };
-
   }
 
+
+  // Function to add data in database
+  const addItem = async (task) => {
+    console.log('Data', task);
+
+    if (task.trim().length == '') {
+      ToastAndroid.show('Input cannot be empty', ToastAndroid.SHORT)
+    }
+    else {
+      let apiUrl = "http://172.18.3.16:3000/post";
+      let formData = {
+        itemName: task ? task : ''
+      };
+      console.log(formData)
+      try {
+        let response = await axios({
+          method: 'POST',
+          url: apiUrl,
+          data: formData
+        });
+        console.log(response);
+        ToastAndroid.show('Item added successfully', ToastAndroid.SHORT)
+        setCounter(counter + 1);
+      }
+      catch (error) {
+        console.log('Error Found: ', error);
+      };
+    }
+  };
+
+
+  // Function to delete data from database
+  const deleteItem = async (data) => {
+    console.log('Data: ', data);
+    let { _id } = data;
+    let apiUrl = `http://172.18.3.16:3000/delete_item/${_id}`;
+    try {
+      let response = await axios({
+        method: 'DELETE',
+        url: apiUrl,
+      });
+      console.log(response);
+      ToastAndroid.show('Item deleted successfully', ToastAndroid.SHORT)
+      setCounter(counter + 1)
+    }
+    catch (error) {
+      console.log('Error: ', error.response);
+    };
+  };
+
+
+  // Function to update data
+  const updateItem = async (data, text) => {
+    console.log(text)
+    if (text.trim().length == '') {
+      ToastAndroid.show('Input cannot be empty', ToastAndroid.SHORT)
+    }
+    else {
+      let { _id } = data;
+      let apiUrl = "http://172.18.3.16:3000/update_item";
+      let updateData = {
+        id: _id,
+        itemName: text,
+      };
+      try {
+        let response = await axios({
+          method: 'POST',
+          url: apiUrl,
+          data: updateData,
+        });
+        console.log(response);
+        ToastAndroid.show('Item updated successfully', ToastAndroid.SHORT)
+        setCounter(counter + 1)
+      }
+      catch (error) {
+        console.log('Error: ', error.response);
+      };
+    }
+  };
+
+
+  // Function to delete all list items 
+  const deleteAll = async () => {
+    let apiUrl = 'http://172.18.3.16:3000/delete_all';
+    if (list.length == 0) {
+      ToastAndroid.show('List is already empty', ToastAndroid.SHORT)
+    }
+    else {
+      try {
+        let response = await axios({
+          method: 'DELETE',
+          url: apiUrl
+        })
+        console.log(response)
+        ToastAndroid.show('Data deleted successfully', ToastAndroid.SHORT)
+        setCounter(counter + 1)
+      }
+      catch (error) {
+        console.log('Error found: ', error)
+      }
+    }
+  }
+
+
   useEffect(() => {
-    userList();
-  }, []);
+    itemList();
+  }, [counter]);
+
 
   return (
+
     <View style={styles.container}>
 
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-around',
-        }}
-      >
+      {/* Header view */}
+      <View style={{ alignItems: 'center' }}>
         <Text style={styles.heading}>
           ToDo List
         </Text>
+        <Text style={styles.text}>
+          Simple app to manage your daily to-dos
+        </Text>
+      </View>
+      <View style={styles.header}>
         <TouchableOpacity
-        // onPress={deleteAll}
+          onPress={deleteAll}
         >
           <Text style={styles.deleteAll}>
             Delete All
@@ -90,7 +171,7 @@ function Todo() {
                     style={styles.taskContainer}
                     key={index}
                   >
-                    <TaskItem item={item} />
+                    <TaskItem item={item} deleteItem={deleteItem} updateItem={updateItem} />
                   </View>
                 );
               })
@@ -111,26 +192,41 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#002b2d'
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
   heading: {
-    margin: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 25,
     color: 'white',
     fontSize: 30,
     fontWeight: 'bold',
+  },
+  text: {
+    color: 'white',
+    fontSize: 16,
+    margin: 5,
+    marginBottom: 8,
   },
   taskContainer: {
     marginTop: 10
   },
   deleteAll: {
     color: 'white',
-    marginTop: 50,
+    margin: 8,
     padding: 14,
     paddingVertical: 8,
     borderRadius: 14,
     fontWeight: 'bold',
     fontSize: 16,
     backgroundColor: '#004448',
-    justifyContent: 'center'
-  }
+    // justifyContent: 'center',
+    // textAlign: 'center',
+    // width: '40%'
+  },
+
 })
 
 export default Todo
